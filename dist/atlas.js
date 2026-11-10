@@ -804,15 +804,83 @@ const constellationPositions = constellationData.stars.map(([ra, dec, sy_dist, n
 });
 const constellationToggle = $('constellations');
 constellationToggle.disabled = !constellationData.lines.length;
+const constellationChoices = $('constellation-choices');
+const constellationFigures = new Map((constellationData.figures ?? []).map(([code, name, lines]) => [code, {name, lines}]));
+let selectedConstellations = null;
+let visibleConstellationLines = constellationData.lines;
+let visibleConstellationStars = new Set(visibleConstellationLines.flat());
+
+$('choose-constellations').disabled = !constellationFigures.size;
+constellationChoices.innerHTML = [...constellationFigures].map(([code, {name}]) =>
+  `<label class="constellation-choice"><input type="checkbox" value="${escapeHtml(code)}">
+    ${escapeHtml(name)} <small>${escapeHtml(code)}</small></label>`).join('');
 
 function setConstellations(visible) {
-  showConstellations = visible && !constellationToggle.disabled;
+  showConstellations = visible && visibleConstellationLines.length > 0;
   constellationToggle.setAttribute('aria-pressed', String(showConstellations));
   $('constellation-key').hidden = !showConstellations;
   scheduleDraw();
 }
 
-constellationToggle.addEventListener('click', () => setConstellations(!showConstellations));
+/**
+ * Choose which figures supply the displayed lines and their endpoint stars.
+ * @param {?Set<string>} selection - IAU abbreviations, or null for the full overlay.
+ * @param {boolean} [visible=true] - Whether to display the layer after selection.
+ */
+function setConstellationSelection(selection, visible = true) {
+  selectedConstellations = selection;
+  if (selection === null) {
+    visibleConstellationLines = constellationData.lines;
+  } else {
+    const indices = new Set([...selection].flatMap((code) => constellationFigures.get(code).lines));
+    visibleConstellationLines = [...indices].map((index) => constellationData.lines[index]);
+  }
+  visibleConstellationStars = new Set(visibleConstellationLines.flat());
+  for (const checkbox of constellationChoices.querySelectorAll('input')) {
+    checkbox.checked = selection?.has(checkbox.value) ?? false;
+  }
+  $('constellation-selection-status').textContent = selection === null
+    ? 'All ' + constellationFigures.size + ' in overlay'
+    : selection.size ? selection.size + ' selected' : 'No constellations selected';
+  setConstellations(visible);
+}
+
+function filterConstellationChoices() {
+  const query = normalize($('constellation-search').value.normalize('NFD'));
+  const abbreviation = [...constellationFigures.keys()].find((code) => code.toLowerCase() === query);
+  let visible = 0;
+  for (const label of constellationChoices.children) {
+    const code = label.firstElementChild.value;
+    const {name} = constellationFigures.get(code);
+    label.hidden = abbreviation ? code !== abbreviation : !normalize(name.normalize('NFD')).includes(query);
+    if (!label.hidden) visible++;
+  }
+  $('no-constellation-results').hidden = visible > 0;
+}
+
+function openConstellationPicker() {
+  $('constellation-search').value = '';
+  filterConstellationChoices();
+  $('constellation-picker').showModal();
+  $('constellation-search').focus();
+}
+
+constellationToggle.addEventListener('click', () => {
+  if (visibleConstellationLines.length) setConstellations(!showConstellations);
+  else openConstellationPicker();
+});
+$('choose-constellations').addEventListener('click', openConstellationPicker);
+$('constellation-search').addEventListener('input', filterConstellationChoices);
+$('show-all-constellations').addEventListener('click', () => setConstellationSelection(null));
+$('clear-constellations').addEventListener('click', () => setConstellationSelection(new Set()));
+constellationChoices.addEventListener('change', (event) => {
+  const checkbox = event.target;
+  if (!constellationFigures.has(checkbox.value)) return;
+  const selection = new Set(selectedConstellations);
+  if (checkbox.checked) selection.add(checkbox.value);
+  else selection.delete(checkbox.value);
+  setConstellationSelection(selection);
+});
 
 function resetCamera() {
   Object.assign(camera, camera.view === 'sol'
@@ -989,9 +1057,10 @@ function drawLabel(text,x,y,color, side = 1) {
 
 /** Project the line endpoints and their star markers through the same camera. */
 function drawConstellations() {
-  const points = constellationPositions.map((position) => project(position));
+  const points = [];
+  for (const index of visibleConstellationStars) points[index] = project(constellationPositions[index]);
   context.beginPath();
-  for (const [start,end] of constellationData.lines) {
+  for (const [start,end] of visibleConstellationLines) {
     const [x1,y1] = points[start], [x2,y2] = points[end];
     if ((x1 < 0 && x2 < 0) || (x1 > chart.w && x2 > chart.w) ||
         (y1 < 0 && y2 < 0) || (y1 > chart.h && y2 > chart.h)) continue;
@@ -1002,7 +1071,8 @@ function drawConstellations() {
   context.lineWidth = 1;
   context.stroke();
   context.fillStyle = '#fff';
-  for (const [x,y] of points) {
+  for (const index of visibleConstellationStars) {
+    const [x,y] = points[index];
     if (x >= 0 && x <= chart.w && y >= 0 && y <= chart.h) context.fillRect(x-1,y-1,2,2);
   }
 }
@@ -1253,6 +1323,7 @@ const viewFilters = {
 function viewLink() {
   const params = new URLSearchParams({ v:'1', system:selected.name, map:camera.view });
   if (showConstellations) params.set('constellations', '1');
+  if (selectedConstellations !== null) params.set('figures', [...selectedConstellations].sort().join(','));
   if ($('search').value) params.set('q', $('search').value);
   for (const [key, id] of Object.entries(viewFilters)) {
     if ($(id).value) params.set(key, $(id).value);
@@ -1298,7 +1369,9 @@ function restoreView() {
     if (planet) comparison.set(planet, star);
   }
   setMapView(params.get('map') === 'galaxy' ? 'galaxy' : 'sol');
-  setConstellations(params.get('constellations') === '1');
+  const figures = params.get('figures');
+  const selection = figures === null ? null : new Set(figures.split(',').filter((code) => constellationFigures.has(code)));
+  setConstellationSelection(selection, params.get('constellations') === '1');
   const framing = (params.get('camera') || '').split(',');
   if (framing.length === 5 && framing.every((value) => value.trim() && Number.isFinite(Number(value)))) {
     const [yaw, pitch, radius, panX, panY] = framing.map(Number);
@@ -1342,6 +1415,7 @@ $('copy-view').addEventListener('click', async () => {
 
 new ResizeObserver(scheduleDraw).observe($('sky'));
 if (!restoreView()) {
+  setConstellationSelection(null, false);
   resetCamera();
   updateFilters();
 }

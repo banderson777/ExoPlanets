@@ -6,7 +6,7 @@ Drag to rotate and scroll or pinch to zoom. Hold Shift while dragging to pan. Th
 
 Use **Copy view link** below the chart to capture the filters, chart view, selected system, and comparison. Links to the hosted atlas use its existing access controls. Links created from the offline copy refer to that file on your computer.
 
-Turn on **Constellations** in the chart to see white lines between their reference stars. The endpoints use stellar distances and rotate with the chart. Zoom out in Sol view to see longer figures. The layer is independent of the exoplanet filters and is included in copied view links.
+Turn on **Constellations** in the chart to see white lines between their reference stars. Use **Choose…** to search by [IAU name or abbreviation](https://www.iau.org/IAU/Astronomy-FAQs/Constellations.aspx) and display selected figures. The endpoints use stellar distances and rotate with the chart. Zoom out in Sol view to see longer figures. The layer is independent of the exoplanet filters, and its selection is included in copied view links.
 
 ## Refresh the NASA catalog
 

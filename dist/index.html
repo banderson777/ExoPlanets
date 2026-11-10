@@ -79,7 +79,10 @@
           <div class="map-meta">
             <div><span class="live-dot"></span><span id="plot-count">Loading catalog…</span></div>
             <span id="projection">SOL-CENTERED · GALACTIC PLANE</span>
-            <button id="constellations" class="quiet map-layer" aria-pressed="false">Constellations</button>
+            <div>
+              <button id="constellations" class="quiet map-layer" aria-pressed="false">Constellations</button>
+              <button id="choose-constellations" class="quiet map-layer" aria-haspopup="dialog" aria-label="Choose constellations">Choose…</button>
+            </div>
           </div>
           <div class="zoom-controls" aria-label="Map controls">
             <button id="zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
@@ -104,6 +107,20 @@
     </div>
     <footer class="foot"><span><a href="https://exoplanetarchive.ipac.caltech.edu/docs/API_PS_columns.html" target="_blank" rel="noopener">NASA Exoplanet Archive</a> <b>·</b> <span id="snapshot-date"></span></span><span id="position-note"></span></footer>
   </main>
+
+  <dialog id="constellation-picker" aria-labelledby="constellation-picker-title">
+    <form method="dialog"><button class="quiet close" aria-label="Close constellation picker">×</button></form>
+    <h2 id="constellation-picker-title">Choose constellations</h2>
+    <p>Check the figures you want to display, or choose Show all for the full overlay.</p>
+    <div class="constellation-picker-actions">
+      <button id="show-all-constellations" class="quiet">Show all</button>
+      <button id="clear-constellations" class="quiet">Clear selection</button>
+      <span id="constellation-selection-status" role="status"></span>
+    </div>
+    <label class="search"><input id="constellation-search" type="search" autocomplete="off" placeholder="Find a constellation…" aria-label="Find a constellation"></label>
+    <div id="constellation-choices" role="group" aria-label="Constellations to display"></div>
+    <p id="no-constellation-results" hidden>No constellations match.</p>
+  </dialog>
 
   <dialog id="view-link-dialog" aria-labelledby="view-link-title">
     <form method="dialog"><button class="quiet close" aria-label="Close view link">×</button></form>

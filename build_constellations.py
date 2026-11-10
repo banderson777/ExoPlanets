@@ -7,6 +7,34 @@ from collections import defaultdict
 from pathlib import Path
 
 
+# Standard IAU names and abbreviations.
+# https://www.iau.org/IAU/Astronomy-FAQs/Constellations.aspx
+NAMES = {
+    "And": "Andromeda", "Ant": "Antlia", "Aps": "Apus", "Aqr": "Aquarius",
+    "Aql": "Aquila", "Ara": "Ara", "Ari": "Aries", "Aur": "Auriga",
+    "Boo": "Boötes", "Cae": "Caelum", "Cam": "Camelopardalis", "Cnc": "Cancer",
+    "CVn": "Canes Venatici", "CMa": "Canis Major", "CMi": "Canis Minor", "Cap": "Capricornus",
+    "Car": "Carina", "Cas": "Cassiopeia", "Cen": "Centaurus", "Cep": "Cepheus",
+    "Cet": "Cetus", "Cha": "Chamaeleon", "Cir": "Circinus", "Col": "Columba",
+    "Com": "Coma Berenices", "CrA": "Corona Australis", "CrB": "Corona Borealis", "Crv": "Corvus",
+    "Crt": "Crater", "Cru": "Crux", "Cyg": "Cygnus", "Del": "Delphinus",
+    "Dor": "Dorado", "Dra": "Draco", "Equ": "Equuleus", "Eri": "Eridanus",
+    "For": "Fornax", "Gem": "Gemini", "Gru": "Grus", "Her": "Hercules",
+    "Hor": "Horologium", "Hya": "Hydra", "Hyi": "Hydrus", "Ind": "Indus",
+    "Lac": "Lacerta", "Leo": "Leo", "LMi": "Leo Minor", "Lep": "Lepus",
+    "Lib": "Libra", "Lup": "Lupus", "Lyn": "Lynx", "Lyr": "Lyra",
+    "Men": "Mensa", "Mic": "Microscopium", "Mon": "Monoceros", "Mus": "Musca",
+    "Nor": "Norma", "Oct": "Octans", "Oph": "Ophiuchus", "Ori": "Orion",
+    "Pav": "Pavo", "Peg": "Pegasus", "Per": "Perseus", "Phe": "Phoenix",
+    "Pic": "Pictor", "Psc": "Pisces", "PsA": "Piscis Austrinus", "Pup": "Puppis",
+    "Pyx": "Pyxis", "Ret": "Reticulum", "Sge": "Sagitta", "Sgr": "Sagittarius",
+    "Sco": "Scorpius", "Scl": "Sculptor", "Sct": "Scutum", "Ser": "Serpens",
+    "Sex": "Sextans", "Tau": "Taurus", "Tel": "Telescopium", "Tri": "Triangulum",
+    "TrA": "Triangulum Australe", "Tuc": "Tucana", "UMa": "Ursa Major", "UMi": "Ursa Minor",
+    "Vel": "Vela", "Vir": "Virgo", "Vol": "Volans", "Vul": "Vulpecula",
+}
+
+
 def read_lines(path):
     """Return unique Bright Star Catalogue endpoint pairs for each figure."""
     figures = defaultdict(set)
@@ -53,7 +81,13 @@ def main():
     kept = [(a, b) for a, b in edges if a in stars and b in stars]
     ids = sorted({hr for edge in kept for hr in edge})
     index = {hr: i for i, hr in enumerate(ids)}
-    data = {"stars": [stars[hr] for hr in ids], "lines": [[index[a], index[b]] for a, b in kept]}
+    line_index = {pair: i for i, pair in enumerate(kept)}
+    data = {
+        "stars": [stars[hr] for hr in ids],
+        "lines": [[index[a], index[b]] for a, b in kept],
+        "figures": [[code, NAMES[code], [line_index[pair] for pair in sorted(figures[code]) if pair in line_index]]
+                    for code in sorted(figures, key=NAMES.__getitem__)],
+    }
     output = Path(__file__).with_name("dist") / "constellations.js"
     notice = (
         "/* Adapted from ConstellationLines by Marc van der Sluys (CC BY 4.0)\n"
