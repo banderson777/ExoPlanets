@@ -349,7 +349,13 @@ function selectStar(star, reveal = true, planet) {
   for (const result of $('results').querySelectorAll('.result[aria-current=true]')) result.setAttribute('aria-current','false');
   $('results').querySelector(`[data-star="${star.id}"]`)?.setAttribute('aria-current','true');
   renderDetail();
-  if (reveal && star.position && chart.w && chart.h) {
+  if (reveal && camera.view === 'sky' && hostDirections.has(star)) {
+    const point = projectSky(hostDirections.get(star));
+    if (!point || point[0] < chart.w * .09 || point[0] > chart.w * .91 ||
+        point[1] < chart.h * .09 || point[1] > chart.h * .91) {
+      Object.assign(camera, {yaw:star.ra * DEG, pitch:star.dec * DEG, panX:0, panY:0});
+    }
+  } else if (reveal && star.position && chart.w && chart.h) {
     const point = project(star.position);
     const { w, h } = chart;
     const outsideDepth = camera.view === 'sol' && Math.abs(point[2]) > camera.radius * 1.45;
@@ -794,9 +800,15 @@ const canvas = $('map');
 const context = canvas.getContext('2d');
 const chart = { w:0, h:0, scale:1, frame:0, hits:[] };
 const camera = { view:'sol', yaw:0, pitch:0, radius:1, panX:0, panY:0 };
+const skyMinRadius = .015, skyMaxRadius = 2;
+const skyDefault = {yaw:84 * DEG, pitch:2 * DEG, radius:.42};
 let hovered = null;
 let showConstellations = false;
 const constellationData = window.ATLAS_CONSTELLATIONS ?? { stars:[], lines:[] };
+const constellationDirections = constellationData.stars.map(([ra, dec]) => skyDirection(ra, dec));
+const hostDirections = new Map(systems
+  .filter((star) => Number.isFinite(star.ra) && Number.isFinite(star.dec))
+  .map((star) => [star, skyDirection(star.ra, star.dec)]));
 const constellationPositions = constellationData.stars.map(([ra, dec, sy_dist, name]) => {
   // Use the host's exact plotted point when the source catalogs share a HIP identifier.
   const host = name && systems.find((star) => star.name === name);
@@ -880,12 +892,55 @@ constellationChoices.addEventListener('change', (event) => {
   if (checkbox.checked) selection.add(checkbox.value);
   else selection.delete(checkbox.value);
   setConstellationSelection(selection);
+  if (camera.view === 'sky' && selection.size === 1) resetCamera();
 });
 
+/** Convert right ascension and declination in degrees to an equatorial unit vector. */
+function skyDirection(ra, dec) {
+  const latitude = dec * DEG, longitude = ra * DEG;
+  return [Math.cos(latitude) * Math.cos(longitude), Math.cos(latitude) * Math.sin(longitude), Math.sin(latitude)];
+}
+
+/** Project an Earth-centered direction onto the tangent plane, with north up and east left. */
+function skyPlane([x,y,z], cosYaw, sinYaw, cosPitch, sinPitch) {
+  const meridian = x * cosYaw + y * sinYaw;
+  const depth = meridian * cosPitch + z * sinPitch;
+  if (depth <= .01) return null;
+  return [(x * sinYaw - y * cosYaw) / depth, (meridian * sinPitch - z * cosPitch) / depth];
+}
+
+function projectSky(direction) {
+  if (!direction) return null;
+  const point = skyPlane(direction, chart.cosYaw, chart.sinYaw, chart.cosPitch, chart.sinPitch);
+  if (!point) return null;
+  return [
+    chart.w/2 + (point[0] + camera.panX) * chart.scale,
+    chart.h/2 + (point[1] + camera.panY) * chart.scale,
+    0,
+  ];
+}
+
+/** Frame a single selected figure by its angular extent. */
+function skyFraming() {
+  if (selectedConstellations?.size !== 1 || !visibleConstellationStars.size) return skyDefault;
+  const directions = [...visibleConstellationStars].map((index) => constellationDirections[index]);
+  const [x,y,z] = directions.reduce(([a,b,c], [x,y,z]) => [a+x,b+y,c+z], [0,0,0]);
+  const yaw = Math.atan2(y,x);
+  const pitch = Math.atan2(z,Math.hypot(x,y));
+  const basis = [Math.cos(yaw), Math.sin(yaw), Math.cos(pitch), Math.sin(pitch)];
+  const extent = Math.max(...directions.map((direction) => {
+    const point = skyPlane(direction, ...basis);
+    return point ? Math.max(Math.abs(point[0]), Math.abs(point[1])) : skyMaxRadius;
+  }));
+  return {yaw, pitch, radius:Math.min(skyMaxRadius, Math.max(.08, extent * 1.55))};
+}
+
 function resetCamera() {
-  Object.assign(camera, camera.view === 'sol'
-    ? { yaw:-.38, pitch:.55, radius:142, panX:0, panY:0 }
-    : { yaw:-.31, pitch:.87, radius:56000, panX:0, panY:0 });
+  const framing = {
+    sol: {yaw:-.38, pitch:.55, radius:142},
+    galaxy: {yaw:-.31, pitch:.87, radius:56000},
+  };
+  Object.assign(camera, camera.view === 'sky' ? skyFraming() : framing[camera.view], {panX:0, panY:0});
   hovered = null;
   hideTip($('map-tip'));
   scheduleDraw();
@@ -985,7 +1040,7 @@ const disk = Array.from({length:10500}, (_, index) => {
   return [radius*Math.cos(angle),radius*Math.sin(angle),bell()*1450,random(),false];
 });
 
-function drawBackdrop() {
+function drawBackdrop(showBackgroundStars) {
   const { w,h } = chart;
   const gradient = context.createRadialGradient(w*.51,h*.48,10,w*.51,h*.48,Math.max(w,h)*.62);
   gradient.addColorStop(0,'#151934');
@@ -993,6 +1048,7 @@ function drawBackdrop() {
   gradient.addColorStop(1,'#070c18');
   context.fillStyle = gradient;
   context.fillRect(0,0,w,h);
+  if (!showBackgroundStars) return;
   context.fillStyle = '#bec8fa';
   for (const [x,y,brightness] of backdrop) {
     context.globalAlpha = .05 + brightness * .25;
@@ -1058,9 +1114,13 @@ function drawLabel(text,x,y,color, side = 1) {
 /** Project the line endpoints and their star markers through the same camera. */
 function drawConstellations() {
   const points = [];
-  for (const index of visibleConstellationStars) points[index] = project(constellationPositions[index]);
+  for (const index of visibleConstellationStars) {
+    points[index] = camera.view === 'sky'
+      ? projectSky(constellationDirections[index]) : project(constellationPositions[index]);
+  }
   context.beginPath();
   for (const [start,end] of visibleConstellationLines) {
+    if (!points[start] || !points[end]) continue;
     const [x1,y1] = points[start], [x2,y2] = points[end];
     if ((x1 < 0 && x2 < 0) || (x1 > chart.w && x2 > chart.w) ||
         (y1 < 0 && y2 < 0) || (y1 > chart.h && y2 > chart.h)) continue;
@@ -1072,6 +1132,7 @@ function drawConstellations() {
   context.stroke();
   context.fillStyle = '#fff';
   for (const index of visibleConstellationStars) {
+    if (!points[index]) continue;
     const [x,y] = points[index];
     if (x >= 0 && x <= chart.w && y >= 0 && y <= chart.h) context.fillRect(x-1,y-1,2,2);
   }
@@ -1098,17 +1159,19 @@ function draw() {
   chart.sinPitch = Math.sin(camera.pitch);
 
   const galaxy = camera.view === 'galaxy';
-  drawBackdrop();
+  const earthSky = camera.view === 'sky';
+  drawBackdrop(!earthSky);
   if (galaxy) drawGalaxy();
-  drawGrid();
+  if (!earthSky) drawGrid();
   if (showConstellations) drawConstellations();
   const sol = project(solar.position);
   const points = [];
   let count = 0;
-  const solVisible = sol[0] >= 0 && sol[0] <= chart.w && sol[1] >= 0 && sol[1] <= chart.h;
+  const solVisible = !earthSky && sol[0] >= 0 && sol[0] <= chart.w && sol[1] >= 0 && sol[1] <= chart.h;
   for (const star of matching) {
-    if (!star.position) continue;
-    const [x,y,z] = project(star.position);
+    const point = earthSky ? projectSky(hostDirections.get(star)) : star.position && project(star.position);
+    if (!point) continue;
+    const [x,y,z] = point;
     if (x < 0 || x > chart.w || y < 0 || y > chart.h) continue;
     if (!galaxy && Math.abs(z) > camera.radius * 1.45) continue;
     points.push({star,x,y,z});
@@ -1125,7 +1188,7 @@ function draw() {
   const labelLocations = [];
   if (solVisible) labelLocations.push([sol[0],sol[1]]);
   if (selectedPoint) labelLocations.push([selectedPoint.x,selectedPoint.y]);
-  if (!galaxy) {
+  if (!galaxy && !earthSky) {
     const candidates = ['Proxima Cen','Barnard\'s star','Ross 128','GJ 273','LHS 1140','TOI-700'];
     for (const name of candidates) {
       const p = points.find((point) => point.star.name.toLowerCase() === name.toLowerCase());
@@ -1156,11 +1219,14 @@ function draw() {
   }
   chart.hits = points;
   $('plot-count').textContent = fmt(count) + ' host' + (count === 1 ? '' : 's') + ' in view';
-  $('projection').textContent = galaxy ? 'MILKY WAY · SCHEMATIC DISK' : 'SOL-CENTERED · GALACTIC PLANE';
-  $('map-notice').textContent = selected.position ? 'Select a star to inspect its system' : 'Selected host has no 3D position';
-  const scale = niceStep(42/chart.scale);
-  $('scale-label').textContent = fmt(scale,2) + ' ly';
-  $('scale-bar').style.width = (scale * chart.scale) + 'px';
+  $('projection').textContent = earthSky ? 'APPARENT DIRECTIONS · NORTH UP' :
+    galaxy ? 'MILKY WAY · SCHEMATIC DISK' : 'SOL-CENTERED · GALACTIC PLANE';
+  const missingPosition = earthSky ? 'Selected host has no sky coordinates' : 'Selected host has no 3D position';
+  $('map-notice').textContent = (earthSky ? hostDirections.has(selected) || selected === solar : selected.position)
+    ? 'Select a star to inspect its system' : missingPosition;
+  const scale = earthSky ? niceStep(Math.atan(42/chart.scale) / DEG) : niceStep(42/chart.scale);
+  $('scale-label').textContent = fmt(scale,2) + (earthSky ? '° at center' : ' ly');
+  $('scale-bar').style.width = ((earthSky ? Math.tan(scale * DEG) : scale) * chart.scale) + 'px';
 }
 
 function updateHover(event, activate = false) {
@@ -1194,7 +1260,8 @@ function updateHover(event, activate = false) {
  */
 function zoom(factor, point) {
   const oldRadius = camera.radius;
-  camera.radius = Math.max(.65, Math.min(83000, camera.radius * factor));
+  const [minRadius, maxRadius] = cameraRadiusBounds();
+  camera.radius = Math.max(minRadius, Math.min(maxRadius, camera.radius * factor));
   if (point && chart.w && chart.h) {
     const ratio = camera.radius / oldRadius;
     camera.panX += (point[0] - chart.w/2) * (ratio - 1) / chart.scale;
@@ -1248,8 +1315,9 @@ canvas.addEventListener('pointermove', (event) => {
     camera.panX += dx/chart.scale;
     camera.panY += dy/chart.scale;
   } else {
-    camera.yaw -= dx*.008;
-    camera.pitch = Math.max(-Math.PI/2,Math.min(Math.PI/2,camera.pitch + dy*.008));
+    const speed = camera.view === 'sky' ? Math.min(.012, 1 / chart.scale) : .008;
+    camera.yaw -= dx * speed;
+    camera.pitch = Math.max(-Math.PI/2,Math.min(Math.PI/2,camera.pitch + dy * speed));
   }
   hovered = null;
   scheduleDraw();
@@ -1277,11 +1345,13 @@ canvas.addEventListener('wheel', (event) => {
     [event.clientX-rect.left,event.clientY-rect.top]);
 }, {passive:false});
 canvas.addEventListener('keydown',(event) => {
+  const step = camera.view === 'sky' ? Math.min(.14, camera.radius / 3) : .14;
+  const pitchStep = camera.view === 'sky' ? -step : .12;
   switch (event.key) {
-    case 'ArrowLeft': camera.yaw += .14; break;
-    case 'ArrowRight': camera.yaw -= .14; break;
-    case 'ArrowUp': camera.pitch = Math.max(-Math.PI/2,camera.pitch-.12); break;
-    case 'ArrowDown': camera.pitch = Math.min(Math.PI/2,camera.pitch+.12); break;
+    case 'ArrowLeft': camera.yaw += step; break;
+    case 'ArrowRight': camera.yaw -= step; break;
+    case 'ArrowUp': camera.pitch = Math.max(-Math.PI/2,camera.pitch-pitchStep); break;
+    case 'ArrowDown': camera.pitch = Math.min(Math.PI/2,camera.pitch+pitchStep); break;
     case '+': case '=': zoom(.75); break;
     case '-': zoom(1.33); break;
     case 'Home': resetCamera(); break;
@@ -1297,13 +1367,23 @@ $('zoom-out').addEventListener('click',() => zoom(1.37));
 $('recenter').addEventListener('click',resetCamera);
 
 const mapModes = document.querySelectorAll('[data-view]');
+const mapTitles = {sol:'LOCAL NEIGHBORHOOD', galaxy:'GALACTIC OVERVIEW', sky:'EARTH SKY'};
+
+function cameraRadiusBounds() {
+  return camera.view === 'sky' ? [skyMinRadius, skyMaxRadius] : [.65, 83000];
+}
+
 function setMapView(view) {
   camera.view = view;
   for (const button of mapModes) button.setAttribute('aria-pressed', String(button.dataset.view === view));
-  $('map-mode').textContent = view === 'sol' ? 'LOCAL NEIGHBORHOOD' : 'GALACTIC OVERVIEW';
+  $('map-mode').textContent = mapTitles[view];
+  $('sol-key').hidden = view === 'sky';
   resetCamera();
 }
-for (const button of mapModes) button.addEventListener('click', () => setMapView(button.dataset.view));
+for (const button of mapModes) button.addEventListener('click', () => {
+  setMapView(button.dataset.view);
+  if (camera.view === 'sky') setConstellations(true);
+});
 
 const viewFilters = {
   method: 'method',
@@ -1368,15 +1448,17 @@ function restoreView() {
     const planet = star.planets.find((candidate) => candidate.pl_name === name);
     if (planet) comparison.set(planet, star);
   }
-  setMapView(params.get('map') === 'galaxy' ? 'galaxy' : 'sol');
   const figures = params.get('figures');
   const selection = figures === null ? null : new Set(figures.split(',').filter((code) => constellationFigures.has(code)));
   setConstellationSelection(selection, params.get('constellations') === '1');
+  const view = params.get('map');
+  setMapView(Object.hasOwn(mapTitles, view) ? view : 'sol');
   const framing = (params.get('camera') || '').split(',');
   if (framing.length === 5 && framing.every((value) => value.trim() && Number.isFinite(Number(value)))) {
     const [yaw, pitch, radius, panX, panY] = framing.map(Number);
+    const [minRadius, maxRadius] = cameraRadiusBounds();
     if (Math.abs(yaw) <= TAU && Math.abs(pitch) <= Math.PI / 2 &&
-        radius >= .65 && radius <= 83000 && Math.abs(panX) <= 1e7 && Math.abs(panY) <= 1e7) {
+        radius >= minRadius && radius <= maxRadius && Math.abs(panX) <= 1e7 && Math.abs(panY) <= 1e7) {
       Object.assign(camera, {yaw, pitch, radius, panX, panY});
     }
   }

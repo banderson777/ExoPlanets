@@ -71,7 +71,7 @@ legend,.field,.list-heading h3,.inspector-kicker{font-size:10px;letter-spacing:.
 .result strong{font-size:12px;font-weight:650}
 .result small,.result>span:last-child{font-size:10px;color:var(--muted)}
 .empty{padding:12px;color:var(--muted);font-size:12px}
-.map-toolbar{min-height:61px;padding:9px 13px;display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:1px solid var(--line)}
+.map-toolbar{min-height:61px;padding:9px 13px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;border-bottom:1px solid var(--line)}
 .map-mode{display:block;color:var(--dim);font-size:9px;letter-spacing:.1em;margin-top:3px}
 .segments{display:flex;background:#090f1c;border:1px solid #293249;border-radius:8px;padding:3px;gap:2px;white-space:nowrap}
 .segments button{padding:5px 8px;border:1px solid transparent;border-radius:5px;background:none;color:var(--muted);font-size:11px}
