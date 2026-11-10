@@ -795,6 +795,24 @@ const context = canvas.getContext('2d');
 const chart = { w:0, h:0, scale:1, frame:0, hits:[] };
 const camera = { view:'sol', yaw:0, pitch:0, radius:1, panX:0, panY:0 };
 let hovered = null;
+let showConstellations = false;
+const constellationData = window.ATLAS_CONSTELLATIONS ?? { stars:[], lines:[] };
+const constellationPositions = constellationData.stars.map(([ra, dec, sy_dist, name]) => {
+  // Use the host's exact plotted point when the source catalogs share a HIP identifier.
+  const host = name && systems.find((star) => star.name === name);
+  return host?.position ?? galacticPosition({ra, dec, sy_dist});
+});
+const constellationToggle = $('constellations');
+constellationToggle.disabled = !constellationData.lines.length;
+
+function setConstellations(visible) {
+  showConstellations = visible && !constellationToggle.disabled;
+  constellationToggle.setAttribute('aria-pressed', String(showConstellations));
+  $('constellation-key').hidden = !showConstellations;
+  scheduleDraw();
+}
+
+constellationToggle.addEventListener('click', () => setConstellations(!showConstellations));
 
 function resetCamera() {
   Object.assign(camera, camera.view === 'sol'
@@ -969,6 +987,26 @@ function drawLabel(text,x,y,color, side = 1) {
   context.textAlign = 'left';
 }
 
+/** Project the line endpoints and their star markers through the same camera. */
+function drawConstellations() {
+  const points = constellationPositions.map((position) => project(position));
+  context.beginPath();
+  for (const [start,end] of constellationData.lines) {
+    const [x1,y1] = points[start], [x2,y2] = points[end];
+    if ((x1 < 0 && x2 < 0) || (x1 > chart.w && x2 > chart.w) ||
+        (y1 < 0 && y2 < 0) || (y1 > chart.h && y2 > chart.h)) continue;
+    context.moveTo(x1,y1);
+    context.lineTo(x2,y2);
+  }
+  context.strokeStyle = 'rgba(255,255,255,.62)';
+  context.lineWidth = 1;
+  context.stroke();
+  context.fillStyle = '#fff';
+  for (const [x,y] of points) {
+    if (x >= 0 && x <= chart.w && y >= 0 && y <= chart.h) context.fillRect(x-1,y-1,2,2);
+  }
+}
+
 /** Paint one chart frame and cache the visible marker positions for pointer hit testing. */
 function draw() {
   chart.frame = 0;
@@ -993,6 +1031,7 @@ function draw() {
   drawBackdrop();
   if (galaxy) drawGalaxy();
   drawGrid();
+  if (showConstellations) drawConstellations();
   const sol = project(solar.position);
   const points = [];
   let count = 0;
@@ -1213,6 +1252,7 @@ const viewFilters = {
  */
 function viewLink() {
   const params = new URLSearchParams({ v:'1', system:selected.name, map:camera.view });
+  if (showConstellations) params.set('constellations', '1');
   if ($('search').value) params.set('q', $('search').value);
   for (const [key, id] of Object.entries(viewFilters)) {
     if ($(id).value) params.set(key, $(id).value);
@@ -1258,6 +1298,7 @@ function restoreView() {
     if (planet) comparison.set(planet, star);
   }
   setMapView(params.get('map') === 'galaxy' ? 'galaxy' : 'sol');
+  setConstellations(params.get('constellations') === '1');
   const framing = (params.get('camera') || '').split(',');
   if (framing.length === 5 && framing.every((value) => value.trim() && Number.isFinite(Number(value)))) {
     const [yaw, pitch, radius, panX, panY] = framing.map(Number);

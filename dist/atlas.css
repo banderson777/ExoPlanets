@@ -83,6 +83,8 @@ legend,.field,.list-heading h3,.inspector-kicker{font-size:10px;letter-spacing:.
 #map:active{cursor:grabbing}
 .map-meta{position:absolute;top:13px;left:13px;display:grid;gap:6px;pointer-events:none;font-size:10px;color:#dae0f5}
 .map-meta div{display:flex;align-items:center;gap:6px}
+.map-layer{pointer-events:auto;justify-self:start;padding:4px 7px;font-size:10px}
+.map-layer[aria-pressed=true]{color:#fff;border-color:#8d87a7;background:#26213a}
 #projection{color:#9da7c1;font-size:9px;letter-spacing:.055em}
 .zoom-controls{position:absolute;right:12px;top:13px;display:grid;gap:4px}
 .zoom-controls button{width:31px;height:29px;padding:0;border:1px solid #343952;border-radius:5px;background:#141b2bd9;font-size:17px;line-height:1}
@@ -92,6 +94,7 @@ legend,.field,.list-heading h3,.inspector-kicker{font-size:10px;letter-spacing:.
 .legend i{display:inline-block;width:5px;height:5px;border-radius:50%;margin-right:2px;background:#a9a1ff;box-shadow:0 0 7px #a9a1ff}
 .legend span:nth-child(2) i{background:#ffc478;box-shadow:0 0 7px #ffc478}
 .legend span:nth-child(3) i{background:#82e3d1;box-shadow:0 0 7px #82e3d1}
+.legend #constellation-key i{width:10px;height:2px;border-radius:0;background:#fff;box-shadow:none;vertical-align:middle}
 .scale div{border:1px solid #a1a9c3;border-top:0;height:5px;margin-top:2px}
 .map-footer{padding:9px 12px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--muted);font-size:10px}
 .map-footer button{white-space:nowrap;font-size:10px;padding:4px 6px}

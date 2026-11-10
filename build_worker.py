@@ -8,6 +8,7 @@ ASSETS = {
     "atlas.css": "text/css; charset=utf-8",
     "atlas.js": "text/javascript; charset=utf-8",
     "catalog.js": "text/javascript; charset=utf-8",
+    "constellations.js": "text/javascript; charset=utf-8",
     "atlas.svg": "image/svg+xml",
 }
 

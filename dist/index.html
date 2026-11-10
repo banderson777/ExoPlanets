@@ -11,6 +11,7 @@
   <link rel="icon" href="atlas.svg" type="image/svg+xml">
   <link rel="stylesheet" href="atlas.css">
   <script defer src="catalog.js"></script>
+  <script defer src="constellations.js"></script>
   <script defer src="atlas.js"></script>
 </head>
 <body>
@@ -75,13 +76,17 @@
         </div>
         <div class="sky" id="sky">
           <canvas id="map" tabindex="0" aria-label="3D star chart. Arrow keys rotate. Plus and minus zoom. Use the matching hosts list to select a system."></canvas>
-          <div class="map-meta"><div><span class="live-dot"></span><span id="plot-count">Loading catalog…</span></div><span id="projection">SOL-CENTERED · GALACTIC PLANE</span></div>
+          <div class="map-meta">
+            <div><span class="live-dot"></span><span id="plot-count">Loading catalog…</span></div>
+            <span id="projection">SOL-CENTERED · GALACTIC PLANE</span>
+            <button id="constellations" class="quiet map-layer" aria-pressed="false">Constellations</button>
+          </div>
           <div class="zoom-controls" aria-label="Map controls">
             <button id="zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
             <button id="zoom-out" title="Zoom out" aria-label="Zoom out">−</button>
             <button id="recenter" title="Reset view" aria-label="Reset view">⌖</button>
           </div>
-          <div class="map-bottom"><div class="scale"><span id="scale-label"></span><div id="scale-bar"></div></div><div class="legend"><span><i></i> Catalog host</span><span><i></i> Sol</span><span><i></i> Selected</span></div></div>
+          <div class="map-bottom"><div class="scale"><span id="scale-label"></span><div id="scale-bar"></div></div><div class="legend"><span><i></i> Catalog host</span><span><i></i> Sol</span><span><i></i> Selected</span><span id="constellation-key" hidden><i></i> Constellation stars</span></div></div>
           <div id="map-tip" class="tooltip" hidden></div>
         </div>
         <div class="map-footer">
@@ -136,6 +141,7 @@
       <dt>Probability of life</dt><dd>Unknown for every exoplanet in the atlas. The evidence categories describe how each planet qualifies for follow-up. Atmosphere, surface conditions, and evidence of life require further observations. <a href="https://science.nasa.gov/blogs/webb/2024/06/05/reconnaissance-of-potentially-habitable-worlds-with-nasas-webb/" target="_blank" rel="noopener">NASA’s guide to potentially habitable worlds</a>.</dd>
       <dt>Combining filters</dt><dd>Any selected trait includes a planet if it meets at least one selected characteristic. All selected traits requires the same planet to meet every selected characteristic. Search, Life Search, discovery method, distance, and spectral class further narrow the results. System detail keeps every planet visible and shows planets outside the current filters in gray.</dd>
       <dt>Positions and orbits</dt><dd>The Milky Way backdrop is schematic. Catalog host positions use linear distances in galactic coordinates. The 2D orbit diagrams compress distances and use schematic orientation and phase. Short dashes mark sizes estimated from orbital period and stellar mass. Labeled dashed placeholders show planets whose orbit size is unknown. These placeholders are drawn separately from scaled orbits, and any projected separation is listed separately in the planet details. Multi-star systems are represented by their catalog host point and show planets around a single diagram origin.</dd>
+      <dt>Constellations</dt><dd>The optional white lines connect reference stars in 3D using familiar Earth-sky patterns. The shapes change as you rotate because the stars lie at different distances. Zoom out in Sol view to see more of a figure. The overlay includes reference stars outside the exoplanet catalog and omits segments with unknown endpoint distances. Figures adapted from <a href="https://github.com/MarcvdSluys/ConstellationLines" target="_blank" rel="noopener">Marc van der Sluys’s ConstellationLines</a> (CC BY 4.0) with stellar data from <a href="https://github.com/astronexus/HYG-Database" target="_blank" rel="noopener">David Nash’s HYG v4.1</a> (CC BY-SA 4.0). The combined data is <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>.</dd>
     </dl>
     <a href="https://exoplanetarchive.ipac.caltech.edu/docs/TAP/usingTAP.html" target="_blank" rel="noopener">NASA catalog and access documentation ↗</a>
   </dialog>
