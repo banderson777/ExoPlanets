@@ -8,6 +8,25 @@ Use **Copy view link** below the chart to capture the filters, chart view, selec
 
 Turn on **Constellations** in the chart to see white lines between their reference stars. Use **Choose…** to search by [IAU name or abbreviation](https://www.iau.org/IAU/Astronomy-FAQs/Constellations.aspx) and display selected figures. **Earth sky** starts near Orion and uses the stars' apparent directions from Earth. Drag to look around, or choose a single constellation to center it. Sol and Galactic views plot the same figures at their stars' distances. The layer is independent of the exoplanet filters, and its selection is included in copied view links.
 
+## Multi-wavelength Explorer
+
+Open **Multi-wavelength** from the atlas header. The built-in synthetic disk demonstrates layer toggles, intensity filtering, rotation, zoom, and sample inspection. Open an exported model with the file picker. The browser reads it locally.
+
+Prepare calibrated FITS images or cubes of the same small field with Python 3.10 or later and Astropy:
+
+```sh
+python3 -m pip install 'astropy>=6,<9'
+python3 prepare_observations.py --target 'Target name' \
+  --input visible.fits SCI 0.55 --input infrared_cube.fits SCI auto \
+  --planes 16 --percentile 90 --output target.json
+```
+
+Each `--input` takes a filename, an HDU index or name, and a representative wavelength in microns for a 2D image. Derive that wavelength from the product or filter documentation. For a cube, use `auto` with a separable wavelength, frequency, or energy WCS on FITS axis 3. The converter uses the celestial WCS to align sample positions in a shared ICRS sky-offset frame. It preserves each sample's calibrated intensity and `BUNIT`, and records the source file, HDU, plane, and sampling stride.
+
+The model uses east and north in arcseconds and log wavelength as its third axis. It represents spectral separation and cannot recover line-of-sight distance. Input files need valid WCS and calibration. The workflow does not download or reduce raw mission products, match point spread functions, or cross-calibrate instruments. The viewer scales brightness per layer, so compare original intensities with their units in the inspector.
+
+The export subsamples spatial pixels and cube planes, then retains samples at or above the requested per-plane percentile. It caps models at 64 layers and 60,000 points for browser use. This is an exploratory visualization, and the original FITS files remain the source for quantitative measurements.
+
 ## Refresh the NASA catalog
 
 Run `python3 refresh_catalog.py --check` with Python 3.9 or later and internet access. It lists added and removed names and changed fields for both hosts and planets without writing the snapshot. Run `python3 refresh_catalog.py` to replace `dist/catalog.js` after review. To check and apply the same previously saved TAP JSON response, pass `--input PATH --date YYYY-MM-DD` to both commands.

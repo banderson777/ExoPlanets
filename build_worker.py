@@ -10,6 +10,9 @@ ASSETS = {
     "catalog.js": "text/javascript; charset=utf-8",
     "constellations.js": "text/javascript; charset=utf-8",
     "atlas.svg": "image/svg+xml",
+    "observations.html": "text/html; charset=utf-8",
+    "observations.css": "text/css; charset=utf-8",
+    "observations.js": "text/javascript; charset=utf-8",
 }
 
 

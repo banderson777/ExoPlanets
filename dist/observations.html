@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'">
+  <title>Multi-wavelength Explorer · Orbital Atlas</title>
+  <link rel="stylesheet" href="atlas.css">
+  <link rel="stylesheet" href="observations.css">
+  <link rel="icon" href="atlas.svg" type="image/svg+xml">
+  <script defer src="observations.js"></script>
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="index.html"><img src="atlas.svg" alt=""><span>ORBITAL <b>ATLAS</b></span></a>
+    <a class="quiet" href="index.html">← Star chart</a>
+  </header>
+  <main>
+    <section class="intro">
+      <div><div class="eyebrow"><span></span> OBSERVATION WORKBENCH</div>
+        <h1>Multi-wavelength Explorer</h1>
+        <p>Rotate aligned observations in three dimensions. The third axis is wavelength, in log microns. It represents spectral separation.</p>
+      </div>
+    </section>
+    <div class="observation-layout">
+      <section class="panel observation-stage" aria-labelledby="target-title">
+        <div class="observation-heading"><div><div class="eyebrow" id="model-kind"></div><h2 id="target-title"></h2></div><button id="reset-view" class="quiet">Reset view</button></div>
+        <canvas id="observation-map" tabindex="0" aria-label="3D observation point cloud. Drag or use arrow keys to rotate. Use plus and minus to zoom."></canvas>
+        <p id="view-range"></p>
+      </section>
+      <aside class="panel observation-controls" aria-label="Observation controls">
+        <h2>Observation layers</h2>
+        <label class="input-label" for="model-file">Open a prepared JSON model</label>
+        <input id="model-file" type="file" accept=".json,application/json">
+        <div class="observation-actions"><button class="quiet" id="demo">Load demo</button><button class="quiet" id="show-all-layers">Show all</button></div>
+        <p id="model-status" role="status"></p>
+        <ul id="observation-layers" aria-label="Wavelength layers"></ul>
+        <label for="contrast">Keep brightest <output id="contrast-value">100%</output> of imported samples</label>
+        <input id="contrast" type="range" min="5" max="100" value="100">
+        <p>Brightness is scaled separately for each layer. Read the original intensity and unit below the chart when selecting a point.</p>
+        <p>Prepare calibrated FITS images and cubes with <code>prepare_observations.py</code>. Files are opened locally in your browser.</p>
+      </aside>
+    </div>
+    <section class="panel observation-inspector" aria-labelledby="sample-title">
+      <h2 id="sample-title">Sample inspector</h2>
+      <p id="sample-info" aria-live="polite">Click or tap a point to read its coordinates and intensity.</p>
+    </section>
+  </main>
+</body>
+</html>
