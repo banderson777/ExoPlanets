@@ -12,6 +12,9 @@ ASSETS = {
     "atlas.svg": "image/svg+xml",
     "observations.html": "text/html; charset=utf-8",
     "observations.css": "text/css; charset=utf-8",
+    "spectrum.html": "text/html; charset=utf-8",
+    "spectrum.js": "text/javascript; charset=utf-8",
+    "k2-18b-spectrum.csv": "text/csv; charset=utf-8",
     "observations.js": "text/javascript; charset=utf-8",
 }
 

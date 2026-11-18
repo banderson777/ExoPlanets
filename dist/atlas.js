@@ -75,6 +75,8 @@ const biosignatureReports = {
   },
 };
 const selectedMoons = {
+  Mercury: [],
+  Venus: [],
   Earth: [['Moon', 'Confirmed · no habitability candidate designation', 'https://science.nasa.gov/moon/']],
   Mars: [
     ['Phobos', 'Confirmed · no habitability candidate designation', 'https://science.nasa.gov/mars/moons/phobos/'],
@@ -313,6 +315,7 @@ function updateFilters() {
     return true;
   });
   $('matches').textContent = fmt(matching.length);
+  $('export-planets').disabled = matching.length === 0;
   listed = PAGE_SIZE;
   renderResults(true);
   if (matching.length && (selected === solar || !matchingPlanets.has(selected.id)) &&
@@ -738,12 +741,22 @@ function planetInfo(planet, star) {
     ${planet.discoverymethod ? '<p>Probability of life · Unknown</p>' : ''}
     ${planet.habitability ? lifeEvidence(planet, star) : ''}
     ${planet.tags.water ? '<a target="_blank" rel="noopener" href="' + evidence[planet.pl_name] + '">Water vapor source ↗</a>' : ''}
+    ${star !== solar && !report ? '<p>Atmospheric biosignatures · No entry in this atlas</p>' : ''}
     ${report ? `<p><strong>Disputed atmospheric signal</strong> · ${report.molecules}. A JWST analysis reported evidence for one or both molecules. An independent analysis found insufficient evidence. The signal does not establish that either molecule is present or that the planet hosts life.</p>
+      <p><a href="spectrum.html">Inspect the JWST spectrum and download measurements ↗</a></p>
       <p><a href="${report.report}" target="_blank" rel="noopener">Original report ↗</a> · <a href="${report.review}" target="_blank" rel="noopener">Independent analysis ↗</a></p>` : ''}
+    ${star !== solar ? `<details><summary>Can I observe a transit?</summary>
+      <p>Search NASA’s transit predictions for ${escapeHtml(planet.pl_name)} over 30 days. Add your coordinates to check visibility from your observing site. Predictions require a published transit ephemeris.</p>
+      <label class="field">Start date (UTC)<input id="transit-start" type="date" required value="${new Date().toISOString().slice(0,10)}"></label>
+      <label class="field">Latitude (° north)<input id="transit-lat" type="number" min="-90" max="90" step="any"></label>
+      <label class="field">Longitude (° east)<input id="transit-lon" type="number" min="-180" max="180" step="any"></label>
+      <p>Use negative values for south and west. Compare ingress and egress with the visibility window to check whether you can observe the whole transit.</p>
+      <button id="transit-predict" class="quiet">Open NASA predictions ↗</button></details>` : ''}
     <details><summary>Moons and habitability</summary>
-      ${moons ? `<p>Selected entries. Habitability targets are places to investigate for conditions that could support life.</p>
+      ${moons?.length ? `<p>Selected entries. Habitability targets are places to investigate for conditions that could support life.</p>
         <ul>${moons.map(([name, note, source]) => `<li><a href="${source}" target="_blank" rel="noopener">${name} ↗</a> · ${note}</li>`).join('')}</ul>`
-        : '<p>No moons are listed for this planet in the atlas.</p>'}
+        : moons ? '<p>This planet has no natural moons.</p>'
+          : '<p>No moon entry in this atlas. The list covers selected moons and candidates.</p>'}
     </details>
     ${!planet.habitability && trappistHZ.has(planet.pl_name) ? referenceLink(trappistHZSource, 'Habitable zone source') : ''}</div>`;
 }
@@ -817,6 +830,22 @@ function selectPlanet(target) {
   detail.querySelector('.planet-info')?.scrollIntoView({ block:'nearest' });
 }
 detail.addEventListener('click', (event) => {
+  if (event.target.closest('#transit-predict')) {
+    const date = $('transit-start'), latitude = $('transit-lat'), longitude = $('transit-lon');
+    latitude.required = longitude.value !== '';
+    longitude.required = latitude.value !== '';
+    if (![date, latitude, longitude].every(input => input.reportValidity())) return;
+    const start = date.valueAsNumber / 86400000 + 2440587.5;
+    const url = new URL('https://exoplanetarchive.ipac.caltech.edu/cgi-bin/TransitView/nph-visibletbls');
+    url.search = new URLSearchParams({dataset:'transits', sname:selectedPlanet.pl_name,
+      phase:'primary', bJD:String(start), eJD:String(start + 30)});
+    if (latitude.value !== '') {
+      url.searchParams.set('lat', latitude.value);
+      url.searchParams.set('lon', longitude.value);
+    }
+    window.open(url.href, '_blank', 'noopener,noreferrer');
+    return;
+  }
   const toggle = event.target.closest('[data-compare-planet]');
   if (toggle) toggleComparison(toggle);
   else selectPlanet(event.target.closest('[data-object]'));
@@ -1424,6 +1453,32 @@ const viewFilters = {
   distance: 'distance-limit',
   match: 'trait-match',
 };
+
+function exportMatchingPlanets() {
+  const filters = {search:$('search').value, traits:[...selectedTraits]};
+  for (const [key, id] of Object.entries(viewFilters)) filters[key] = $(id).value;
+  const settings = JSON.stringify(filters);
+  const fields = catalog.planetFields;
+  const units = {pl_orbper:'days', pl_orbsmax:'au', pl_orbeccen:'unitless',
+    pl_rade:'earth_radii', pl_bmasse:'earth_masses', pl_dens:'g_cm3', pl_eqt:'K', pl_insol:'earth_flux'};
+  const rows = [['catalog_date', 'filters_json', 'host', 'host_distance_pc', 'system_reference',
+    'matched_characteristics', ...fields.map(key => units[key] ? key + '_' + units[key] : key)]];
+  for (const star of matching) {
+    for (const planet of matchingPlanets.get(star.id)) {
+      const characteristics = traits.filter(trait => planet.tags[trait.id]).map(trait => trait.label);
+      rows.push([catalog.date, settings, star.name, star.sy_dist, catalogOverview(star),
+        characteristics.join(' | '), ...fields.map(key => planet[key])]);
+    }
+  }
+  const csv = rows.map(row => row.map(value => '"' + String(value ?? '').replaceAll('"', '""') + '"').join(',')).join('\r\n');
+  const url = URL.createObjectURL(new Blob([csv, '\r\n'], {type:'text/csv;charset=utf-8'}));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'orbital-atlas-planets-' + catalog.date + '.csv';
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+$('export-planets').addEventListener('click', exportMatchingPlanets);
 
 /**
  * Encode the current view in the versioned URL fragment.
