@@ -67,7 +67,29 @@ const evidence = {
   'WASP-12 b': 'https://science.nasa.gov/missions/hubble/hubble-finds-three-surprisingly-dry-exoplanets/',
   'WASP-107 b': 'https://science.nasa.gov/missions/webb/3-years-of-science-10-cosmic-surprises-from-nasas-webb-telescope/',
 };
+const biosignatureReports = {
+  'K2-18 b': {
+    molecules:'Dimethyl sulfide (DMS) and dimethyl disulfide (DMDS)',
+    report:'https://arxiv.org/abs/2504.12267',
+    review:'https://doi.org/10.1051/0004-6361/202555580',
+  },
+};
+const selectedMoons = {
+  Earth: [['Moon', 'Confirmed · no habitability candidate designation', 'https://science.nasa.gov/moon/']],
+  Mars: [
+    ['Phobos', 'Confirmed · no habitability candidate designation', 'https://science.nasa.gov/mars/moons/phobos/'],
+    ['Deimos', 'Confirmed · no habitability candidate designation', 'https://science.nasa.gov/mars/moons/deimos/'],
+  ],
+  Jupiter: [['Europa', 'Confirmed · habitability target because of its likely subsurface ocean', 'https://science.nasa.gov/jupiter/moons/europa/']],
+  Saturn: [
+    ['Enceladus', 'Confirmed · habitability target with an ocean that feeds water-rich plumes', 'https://science.nasa.gov/saturn/moons/enceladus/'],
+    ['Titan', 'Confirmed · astrobiology target with complex organic chemistry', 'https://science.nasa.gov/saturn/moons/titan/'],
+  ],
+  'Kepler-1625 b': [['Kepler-1625 b-i', 'Disputed candidate · habitability unknown', 'https://www.nature.com/articles/s41550-025-02547-1']],
+  'Kepler-1708 b': [['Kepler-1708 b-i', 'Disputed candidate · habitability unknown', 'https://www.nature.com/articles/s41550-021-01539-1']],
+};
 const traits = [
+  { id:'biosignature', label:'Possible biosignature report', symbol:'✧', help:'Curated reports of candidate atmospheric biosignature molecules, including disputed claims' },
   { id:'water', label:'Water vapor', symbol:'◇', help:'Selected published atmospheric water detections' },
   { id:'rocky', label:'Rocky candidate', symbol:'⬡', help:'Radius and, when available, bulk density suggest a rocky candidate' },
   { id:'cold', label:'Cold / frozen?', symbol:'❄', help:'Catalog equilibrium temperature at or below 200 K' },
@@ -168,6 +190,7 @@ function preparePlanet(planet, star) {
   const flux = !planet.pl_insollim && positive(planet.pl_insol) ? planet.pl_insol
     : positive(planet.axis) && Number.isFinite(star.st_lum) ? 10 ** star.st_lum / planet.axis ** 2 : null;
   planet.tags = {
+    biosignature: Object.hasOwn(biosignatureReports, planet.pl_name),
     water: Object.prototype.hasOwnProperty.call(evidence, planet.pl_name),
     rocky: positive(radius) && radius <= 1.6 && (!positive(density) || density >= 3.5),
     cold: !planet.pl_eqtlim && positive(planet.pl_eqt) && planet.pl_eqt <= 200,
@@ -702,6 +725,8 @@ function planetInfo(planet, star) {
   const mass = numberWithUnit(planet.pl_bmasse, 'M⊕');
   const orbit = planet.axis ? (planet.axisEstimated ? '≈ ' : '') + numberWithUnit(planet.axis, 'AU', 5) : '—';
   const flags = traits.filter((t) => planet.tags[t.id]).map((t) => t.label).join(' · ');
+  const report = biosignatureReports[planet.pl_name];
+  const moons = selectedMoons[planet.pl_name];
   return `<div class="planet-info"><h4>${escapeHtml(planet.pl_name)}</h4>
     <p>${planet.discoverymethod ? escapeHtml(planet.discoverymethod) + ' · ' + fmt(planet.disc_year,0) : 'Solar System planet'}</p>
     <p>Radius ${planet.pl_radelim ? '—' : numberWithUnit(planet.pl_rade,'R⊕')} · Mass ${mass}${planet.pl_bmassprov ? ' (' + escapeHtml(planet.pl_bmassprov) + ')' : ''}</p>
@@ -713,6 +738,13 @@ function planetInfo(planet, star) {
     ${planet.discoverymethod ? '<p>Probability of life · Unknown</p>' : ''}
     ${planet.habitability ? lifeEvidence(planet, star) : ''}
     ${planet.tags.water ? '<a target="_blank" rel="noopener" href="' + evidence[planet.pl_name] + '">Water vapor source ↗</a>' : ''}
+    ${report ? `<p><strong>Disputed atmospheric signal</strong> · ${report.molecules}. A JWST analysis reported evidence for one or both molecules. An independent analysis found insufficient evidence. The signal does not establish that either molecule is present or that the planet hosts life.</p>
+      <p><a href="${report.report}" target="_blank" rel="noopener">Original report ↗</a> · <a href="${report.review}" target="_blank" rel="noopener">Independent analysis ↗</a></p>` : ''}
+    <details><summary>Moons and habitability</summary>
+      ${moons ? `<p>Selected entries. Habitability targets are places to investigate for conditions that could support life.</p>
+        <ul>${moons.map(([name, note, source]) => `<li><a href="${source}" target="_blank" rel="noopener">${name} ↗</a> · ${note}</li>`).join('')}</ul>`
+        : '<p>No moons are listed for this planet in the atlas.</p>'}
+    </details>
     ${!planet.habitability && trappistHZ.has(planet.pl_name) ? referenceLink(trappistHZSource, 'Habitable zone source') : ''}</div>`;
 }
 
