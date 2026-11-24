@@ -6,6 +6,7 @@ from pathlib import Path
 ASSETS = {
     "index.html": "text/html; charset=utf-8",
     "atlas.css": "text/css; charset=utf-8",
+    "science.js": "text/javascript; charset=utf-8",
     "atlas.js": "text/javascript; charset=utf-8",
     "catalog.js": "text/javascript; charset=utf-8",
     "constellations.js": "text/javascript; charset=utf-8",

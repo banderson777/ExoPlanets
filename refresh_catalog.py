@@ -1,6 +1,7 @@
 """Build the portable browser catalog from NASA's confirmed-planet table."""
 import argparse
 import json
+from build_worker import ASSETS, main as build_worker
 from datetime import date, datetime
 from html.parser import HTMLParser
 from pathlib import Path
@@ -198,6 +199,10 @@ def main():
         report_changes(previous, snapshot, args.check)
     elif args.check:
         print("No baseline snapshot is available for comparison.")
+    for name in ASSETS:
+        if name != target.name and not (target.parent / name).is_file():
+            raise ValueError(f"Missing atlas asset: {name}")
+    print("Science assets checked. Update curated reports and observation files from reviewed sources before refreshing.")
     if args.check:
         return
     with NamedTemporaryFile(mode="w", encoding="utf-8", dir=target.parent, delete=False) as output:
@@ -211,6 +216,7 @@ def main():
             pending.replace(target)
         finally:
             pending.unlink(missing_ok=True)
+    build_worker()
     print(f"{len(rows):,} planets in {len(hosts):,} systems → {target.name}")
 
 

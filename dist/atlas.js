@@ -57,39 +57,6 @@ const DEG = Math.PI / 180;
 const SUN_X = -26670;
 const starColors = { O:'#9db8ff', B:'#a6b8ff', A:'#c3d1ff', F:'#e4dcff', G:'#ffd99c', K:'#ffb67d', M:'#ff9b9f', L:'#eb94a1', T:'#bf95cf', Y:'#aa91ba' };
 const starNames = { O:'Blue', B:'Blue-white', A:'White', F:'Yellow-white', G:'Yellow', K:'Orange', M:'Red' };
-const evidence = {
-  'WASP-39 b': 'https://science.nasa.gov/missions/webb/nasas-webb-reveals-an-exoplanet-atmosphere-as-never-before/',
-  'GJ 9827 d': 'https://science.nasa.gov/missions/hubble/nasas-hubble-finds-water-vapor-in-small-exoplanets-atmosphere/',
-  'WASP-96 b': 'https://science.nasa.gov/asset/webb/exoplanet-wasp-96-b-niriss-transmission-spectrum/',
-  'HAT-P-11 b': 'https://science.nasa.gov/solar-system/ocean-worlds/',
-  'HD 189733 b': 'https://science.nasa.gov/missions/hubble/hubble-finds-three-surprisingly-dry-exoplanets/',
-  'HD 209458 b': 'https://science.nasa.gov/missions/hubble/hubble-finds-three-surprisingly-dry-exoplanets/',
-  'WASP-12 b': 'https://science.nasa.gov/missions/hubble/hubble-finds-three-surprisingly-dry-exoplanets/',
-  'WASP-107 b': 'https://science.nasa.gov/missions/webb/3-years-of-science-10-cosmic-surprises-from-nasas-webb-telescope/',
-};
-const biosignatureReports = {
-  'K2-18 b': {
-    molecules:'Dimethyl sulfide (DMS) and dimethyl disulfide (DMDS)',
-    report:'https://arxiv.org/abs/2504.12267',
-    review:'https://doi.org/10.1051/0004-6361/202555580',
-  },
-};
-const selectedMoons = {
-  Mercury: [],
-  Venus: [],
-  Earth: [['Moon', 'Confirmed · no habitability candidate designation', 'https://science.nasa.gov/moon/']],
-  Mars: [
-    ['Phobos', 'Confirmed · no habitability candidate designation', 'https://science.nasa.gov/mars/moons/phobos/'],
-    ['Deimos', 'Confirmed · no habitability candidate designation', 'https://science.nasa.gov/mars/moons/deimos/'],
-  ],
-  Jupiter: [['Europa', 'Confirmed · habitability target because of its likely subsurface ocean', 'https://science.nasa.gov/jupiter/moons/europa/']],
-  Saturn: [
-    ['Enceladus', 'Confirmed · habitability target with an ocean that feeds water-rich plumes', 'https://science.nasa.gov/saturn/moons/enceladus/'],
-    ['Titan', 'Confirmed · astrobiology target with complex organic chemistry', 'https://science.nasa.gov/saturn/moons/titan/'],
-  ],
-  'Kepler-1625 b': [['Kepler-1625 b-i', 'Disputed candidate · habitability unknown', 'https://www.nature.com/articles/s41550-025-02547-1']],
-  'Kepler-1708 b': [['Kepler-1708 b-i', 'Disputed candidate · habitability unknown', 'https://www.nature.com/articles/s41550-021-01539-1']],
-};
 const traits = [
   { id:'biosignature', label:'Possible biosignature report', symbol:'✧', help:'Curated reports of candidate atmospheric biosignature molecules, including disputed claims' },
   { id:'water', label:'Water vapor', symbol:'◇', help:'Selected published atmospheric water detections' },
@@ -276,7 +243,7 @@ $('snapshot-date').textContent = 'Snapshot ' + new Date(catalog.date + 'T12:00:0
 });
 $('position-note').textContent = fmt(systems.length - mappedTotal) + ' hosts searchable without a map position';
 $('traits').innerHTML = traits.map((t) =>
-  `<button class="trait" data-trait="${t.id}" title="${t.help}" aria-pressed="false"><span aria-hidden="true">${t.symbol}</span>${t.label}</button>`).join('');
+  `<label class="trait" title="${t.help}"><input type="checkbox" data-trait="${t.id}"><span aria-hidden="true">${t.symbol}</span>${t.label}</label>`).join('');
 const methods = [...new Set(systems.flatMap((s) => s.planets.map((p) => p.discoverymethod)))].filter(Boolean).sort();
 for (const method of methods) $('method').add(new Option(method, method));
 for (const spectral of 'OBAFGKMLTY') $('spectral').add(new Option(spectral + ' class', spectral));
@@ -294,6 +261,7 @@ function updateFilters() {
   const method = $('method').value;
   const spectral = $('spectral').value;
   const lifeSearch = $('life-search').value;
+  const radioFilter = $('radio-filter').value;
   const distanceLimit = Number($('distance-limit').value);
   const activeTraits = [...selectedTraits];
   const matchAllTraits = $('trait-match').value === 'all';
@@ -304,6 +272,8 @@ function updateFilters() {
   };
   matchingPlanets = new Map();
   matching = systems.filter((star) => {
+    const radio = radioBursts.get(star.name);
+    if (radioFilter && (!radio || (radioFilter === 'observed' && radio.tentative))) return false;
     if (spectral && (star.spectral || 'other') !== spectral) return false;
     if (distanceLimit && (star.distance === null || star.distance > distanceLimit)) return false;
     const hostMatches = !query || star.search.includes(query);
@@ -407,29 +377,29 @@ $('results').addEventListener('click', (event) => {
     $('results').querySelectorAll('.result')[previous]?.focus();
   }
 });
-$('traits').addEventListener('click', (event) => {
-  const button = event.target.closest('[data-trait]');
-  if (!button) return;
-  const id = button.dataset.trait;
-  if (selectedTraits.has(id)) selectedTraits.delete(id);
-  else selectedTraits.add(id);
-  button.setAttribute('aria-pressed', String(selectedTraits.has(id)));
+$('traits').addEventListener('change', (event) => {
+  const checkbox = event.target.closest('[data-trait]');
+  if (!checkbox) return;
+  if (checkbox.checked) selectedTraits.add(checkbox.dataset.trait);
+  else selectedTraits.delete(checkbox.dataset.trait);
   updateFilters();
 });
+$('marker-style').addEventListener('change', scheduleDraw);
 $('search').addEventListener('input', updateFilters);
 $('method').addEventListener('change', updateFilters);
 $('spectral').addEventListener('change', updateFilters);
 $('life-search').addEventListener('change', updateFilters);
+$('radio-filter').addEventListener('change', updateFilters);
 $('distance-limit').addEventListener('change', updateFilters);
 $('trait-match').addEventListener('change', updateFilters);
 
 function resetFilters(nearby = false) {
-  $('search').value = $('method').value = $('spectral').value = $('life-search').value = '';
+  $('search').value = $('method').value = $('spectral').value = $('life-search').value = $('radio-filter').value = '';
   $('distance-limit').value = nearby ? String(NEARBY_DISTANCE_LY) : '';
   $('trait-match').value = 'any';
   selectedTraits.clear();
   if (nearby) selectedTraits.add('earth-like');
-  for (const button of $('traits').children) button.setAttribute('aria-pressed', String(selectedTraits.has(button.dataset.trait)));
+  for (const button of $('traits').querySelectorAll('[data-trait]')) button.checked = selectedTraits.has(button.dataset.trait);
   updateFilters();
 }
 
@@ -770,7 +740,15 @@ function renderDetail() {
   const matchingInSystem = new Set(star === solar ? star.planets : matchingPlanets.get(star.id));
   const filtered = matchingInSystem.size < star.planets.length;
   const label = escapeHtml(star.label);
+  const radio = radioBursts.get(star.name);
   detail.innerHTML = `<div class="system-heading"><h3>${escapeHtml(star.name)}</h3><p>${label}${star.st_spectype && star.st_spectype !== star.label ? ' · ' + escapeHtml(star.st_spectype) : ''}${Number.isInteger(star.sy_snum) && star.sy_snum > 1 ? ' · ' + star.sy_snum + ' stars' : ''}</p></div>
+    ${radio ? `<section class="planet-info radio-summary" aria-label="Radio observations">
+      <h4>Radio observations</h4>
+      <p><strong>${radio.status}</strong></p>
+      <p>${radio.measured}</p>
+      <p>${radio.interpretation}</p>
+      <p>${radio.sources.map(([label, url]) => `<a href="${url}" target="_blank" rel="noopener">${label} ↗</a>`).join(' · ')}</p>
+    </section>` : ''}
     <div class="measurements"><div><strong>${numberWithUnit(star.distance,'ly',1)}</strong><span>Distance</span></div><div><strong>${numberWithUnit(star.st_teff,'K',0)}</strong><span>Stellar temp.</span></div><div><strong>${numberWithUnit(star.st_mass,'M☉')}</strong><span>Stellar mass</span></div></div>
     ${renderOrbit(star, matchingInSystem)}
     <div class="planet-title"><span>PLANETS</span><span>${filtered ? matchingInSystem.size + ' OF ' + star.planets.length + ' MATCH' : star.planets.length + (star === solar ? ' TOTAL' : ' CONFIRMED')}</span></div>
@@ -781,6 +759,8 @@ function renderDetail() {
         !positive(planet.axis) ? 'Orbit size unknown' : ''].filter(Boolean).join(' · ');
       return `<div class="compare-item"><button class="planet-row${matches ? '' : ' outside-filter'}" data-object="${index}" aria-pressed="${selectedPlanet === planet}">
       <i class="star-dot" data-dot="${matches ? planet.color : unmatchedPlanetColor}"></i><span class="planet-name"><strong>${escapeHtml(planet.pl_name)}</strong>
+      ${traits.filter(trait => planet.tags[trait.id]).map(trait =>
+        ` <span title="${escapeHtml(trait.label)}" role="img" aria-label="${escapeHtml(trait.label)}">${trait.symbol}</span>`).join('')}
       ${note ? '<small class="planet-note' + (habitable ? ' habitable-note' : '') + '">' + note + '</small>' : ''}</span>
       <span>${planet.axis ? (planet.axisEstimated ? '≈' : '') + numberWithUnit(planet.axis,'AU',4) : '—'}</span></button>
       ${compareToggle(star, planet)}</div>`;
@@ -1156,6 +1136,21 @@ function drawMarker({star,x,y}, role = '') {
     context.stroke();
   }
   context.fillStyle = color;
+  const planets = matchingPlanets.get(star.id);
+  if ($('marker-style').value === 'symbols' && planets) {
+    const symbols = traits.filter(trait =>
+      (!selectedTraits.size || selectedTraits.has(trait.id)) &&
+      planets.some(planet => planet.tags[trait.id])).map(trait => trait.symbol);
+    if (symbols.length) {
+      context.save();
+      context.font = '12px "Segoe UI Symbol", sans-serif';
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+      context.fillText(symbols.join(' '), x, y);
+      context.restore();
+      return;
+    }
+  }
   circle(x,y,radius);
   context.fill();
 }
@@ -1290,21 +1285,40 @@ function draw() {
   $('scale-bar').style.width = ((earthSky ? Math.tan(scale * DEG) : scale) * chart.scale) + 'px';
 }
 
+function inspectMapStar(star) {
+  selectStar(star, false);
+  if (window.matchMedia('(max-width: 900px)').matches) $('inspector').scrollIntoView({block:'nearest'});
+}
+
+$('close-star-picker').addEventListener('click', () => $('star-picker').close());
+
 function updateHover(event, activate = false) {
   const rect = canvas.getBoundingClientRect();
   const x = event.clientX - rect.left, y = event.clientY - rect.top;
-  let best = null, closest = 9 ** 2;
-  for (const point of chart.hits) {
-    const distance = (point.x-x) ** 2 + (point.y-y) ** 2;
-    if (distance <= closest) {
-      best = point.star;
-      closest = distance;
-    }
+  const nearby = chart.hits
+    .map(point => ({star:point.star, distance:(point.x-x) ** 2 + (point.y-y) ** 2}))
+    .filter(point => point.distance <= 9 ** 2)
+    .sort((first, second) => first.distance - second.distance);
+  const best = nearby[0]?.star;
+  if (activate && nearby.length > 1) {
+    const dialog = $('star-picker');
+    const options = nearby.map(({star}) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'quiet';
+      button.textContent = star.name;
+      button.addEventListener('click', () => {
+        dialog.close();
+        inspectMapStar(star);
+      });
+      return button;
+    });
+    $('star-picker-options').replaceChildren(...options);
+    hideTip($('map-tip'));
+    dialog.showModal();
+    return;
   }
-  if (activate) {
-    selectStar(best, false);
-    if (best && window.matchMedia('(max-width: 900px)').matches) $('inspector').scrollIntoView({block:'nearest'});
-  }
+  if (activate && best) inspectMapStar(best);
   canvas.style.cursor = best ? 'pointer' : '';
   if (hovered !== best) {
     hovered = best;
@@ -1450,6 +1464,8 @@ const viewFilters = {
   method: 'method',
   spectral: 'spectral',
   life: 'life-search',
+  radio: 'radio-filter',
+  markers: 'marker-style',
   distance: 'distance-limit',
   match: 'trait-match',
 };
@@ -1524,10 +1540,10 @@ function restoreView() {
   }
   const requestedTraits = new Set(params.getAll('trait'));
   selectedTraits.clear();
-  for (const button of $('traits').children) {
+  for (const button of $('traits').querySelectorAll('[data-trait]')) {
     const active = requestedTraits.has(button.dataset.trait);
     if (active) selectedTraits.add(button.dataset.trait);
-    button.setAttribute('aria-pressed', String(active));
+    button.checked = active;
   }
   comparison.clear();
   for (const name of params.getAll('compare').slice(0, COMPARE_LIMIT)) {

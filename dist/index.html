@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="atlas.css">
   <script defer src="catalog.js"></script>
   <script defer src="constellations.js"></script>
+  <script defer src="science.js"></script>
   <script defer src="atlas.js"></script>
 </head>
 <body>
@@ -64,6 +65,12 @@
             <option value="radius">Radius-based candidates</option>
           </select></label>
           <p class="filter-help" id="life-search-help">Life probability is unknown. Filter by habitability evidence.</p>
+          <label class="field">RADIO BURSTS<select id="radio-filter" aria-describedby="radio-help">
+            <option value="">Any system</option>
+            <option value="observed">Observed bursts</option>
+            <option value="reported">Observed or tentative reports</option>
+          </select></label>
+          <p class="filter-help" id="radio-help">Selected systems with published radio studies.</p>
           <label class="field">DISCOVERY METHOD<select id="method"><option value="">Any method</option></select></label>
           <label class="field">HOST SPECTRAL CLASS<select id="spectral"><option value="">Any spectral class</option></select></label>
         </div>
@@ -96,6 +103,7 @@
         <div class="map-footer">
           <span>Drag to rotate <b>·</b> Scroll to zoom <b>·</b> Shift + drag to pan</span>
           <span id="map-notice">Select a star to inspect its system</span>
+          <label>Star markers <select id="marker-style"><option value="">Dots</option><option value="symbols">Characteristic symbols</option></select></label>
           <button id="copy-view" class="quiet">Copy view link</button>
           <button id="export-planets" class="quiet">Export matching planets</button>
           <span id="copy-view-status" role="status"></span>
@@ -163,6 +171,11 @@
       <dt>Constellations</dt><dd>The optional white lines connect reference stars in 3D using familiar Earth-sky patterns. The shapes change as you rotate because the stars lie at different distances. Zoom out in Sol view to see more of a figure. The overlay includes reference stars outside the exoplanet catalog and omits segments with unknown endpoint distances. Figures adapted from <a href="https://github.com/MarcvdSluys/ConstellationLines" target="_blank" rel="noopener">Marc van der Sluys’s ConstellationLines</a> (CC BY 4.0) with stellar data from <a href="https://github.com/astronexus/HYG-Database" target="_blank" rel="noopener">David Nash’s HYG v4.1</a> (CC BY-SA 4.0). The combined data is <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>.</dd>
     </dl>
     <a href="https://exoplanetarchive.ipac.caltech.edu/docs/TAP/usingTAP.html" target="_blank" rel="noopener">NASA catalog and access documentation ↗</a>
+  </dialog>
+  <dialog id="star-picker" aria-labelledby="star-picker-heading">
+    <h2 id="star-picker-heading">Choose a nearby star</h2>
+    <div id="star-picker-options"></div>
+    <button id="close-star-picker" class="quiet">Cancel</button>
   </dialog>
 </body>
 </html>
